@@ -1,3 +1,6 @@
+import CalPageRank.CalPageRankMapper;
+import CalPageRank.CalPageRankReducer;
+import XMLParser.LinkArrayWritable;
 import XMLParser.PageLinkMapper;
 import XMLParser.PageLinkReducer;
 import XMLParser.XmlInputFormat;
@@ -8,6 +11,7 @@ import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
@@ -42,15 +46,38 @@ public class PageRank extends Configured implements Tool {
         xmlParser.setMapperClass(PageLinkMapper.class);
         xmlParser.setMapOutputKeyClass(Text.class);
         xmlParser.setMapOutputValueClass(Text.class);
-        xmlParser.setCombinerClass(PageLinkReducer.class);
+        //xmlParser.setCombinerClass(PageLinkReducer.class);
         // Output / Reducer
         FileOutputFormat.setOutputPath(xmlParser, new Path(outputPath));
         xmlParser.setOutputFormatClass(TextOutputFormat.class);
         xmlParser.setOutputKeyClass(Text.class);
-        xmlParser.setOutputValueClass(Text.class);
+        xmlParser.setOutputValueClass(LinkArrayWritable.class);
         xmlParser.setReducerClass(PageLinkReducer.class);
 
         return xmlParser.waitForCompletion(true);
+    }
+
+    public boolean runRankCalculation(String inputPath, String outputPath) throws IOException, ClassNotFoundException, InterruptedException {
+        Configuration conf = getConf();
+
+        Job rankCalculator = Job.getInstance(conf, "rankCalculator");
+        rankCalculator.setJarByClass(PageRank.class);
+
+        // Input / Mapper
+        FileInputFormat.addInputPath(rankCalculator, new Path(inputPath));
+        rankCalculator.setInputFormatClass(TextInputFormat.class);
+        rankCalculator.setMapperClass(CalPageRankMapper.class);
+        rankCalculator.setMapOutputKeyClass(Text.class);
+        rankCalculator.setMapOutputValueClass(Text.class);
+
+        // Output / Reducer
+        FileOutputFormat.setOutputPath(rankCalculator, new Path(outputPath));
+        rankCalculator.setOutputFormatClass(TextOutputFormat.class);
+        rankCalculator.setOutputKeyClass(Text.class);
+        rankCalculator.setOutputValueClass(Text.class);
+        rankCalculator.setReducerClass(CalPageRankReducer.class);
+
+        return rankCalculator.waitForCompletion(true);
     }
 
     public static void main(String[] args) throws Exception {
