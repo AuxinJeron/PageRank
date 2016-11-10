@@ -4,6 +4,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
 import java.io.IOException;
+import java.util.Random;
 
 /**
  * Created by leon on 11/3/16.
@@ -40,7 +41,8 @@ public class CalPageRankReducer extends Reducer<Text, Text, Text, Text> {
         }
 
         if (!isExistingWikiPage) return;
-        float newRank = damping * sumShareOtherPageRanks + (1 - damping);
+        Random rn = new Random();
+        float newRank = damping * sumShareOtherPageRanks + (1 - damping) + Math.abs(rn.nextInt() % 100);
 
         context.write(page, new Text(newRank + links));
     }

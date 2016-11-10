@@ -1,13 +1,17 @@
 import CalPageRank.CalPageRankMapper;
 import CalPageRank.CalPageRankReducer;
+import RankPages.RankPageMapper;
+import RankPages.RankPageReducer;
 import XMLParser.LinkArrayWritable;
 import XMLParser.PageLinkMapper;
 import XMLParser.PageLinkReducer;
 import XMLParser.XmlInputFormat;
+import org.apache.commons.configuration.event.ConfigurationErrorEvent;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.ArrayWritable;
+import org.apache.hadoop.io.FloatWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
@@ -27,7 +31,14 @@ import java.io.IOException;
 public class PageRank extends Configured implements Tool {
 
     public int run(String[] args) throws Exception {
-        boolean completed = runXmlParsing(args[0], args[1]);
+        String xmlParsePath = args[1] + "/xml";
+        String calculationPath = args[1] + "/cal";
+        String pageRankPath = args[1] + "/rank";
+        boolean completed = runXmlParsing(args[0], xmlParsePath);
+        if (completed == false) return 1;
+        completed = runRankCalculation(xmlParsePath, calculationPath);
+        if (completed == false) return 1;
+        completed = runRankOrder(calculationPath, pageRankPath);
         if (completed == false) return 1;
         return 0;
     }
@@ -78,6 +89,30 @@ public class PageRank extends Configured implements Tool {
         rankCalculator.setReducerClass(CalPageRankReducer.class);
 
         return rankCalculator.waitForCompletion(true);
+    }
+
+    public boolean runRankOrder(String inputPath, String outputPath) throws  IOException, ClassNotFoundException, InterruptedException {
+        Configuration conf = new Configuration();
+
+        Job rankOrdering = Job.getInstance(conf, "rankOrdering");
+
+        rankOrdering.setJarByClass(PageRank.class);
+
+        rankOrdering.setOutputKeyClass(Text.class);
+        rankOrdering.setOutputValueClass(FloatWritable.class);
+        rankOrdering.setReducerClass(RankPageReducer.class);
+
+        rankOrdering.setMapperClass(RankPageMapper.class);
+        rankOrdering.setMapOutputKeyClass(FloatWritable.class);
+        rankOrdering.setMapOutputValueClass(Text.class);
+
+        FileInputFormat.setInputPaths(rankOrdering, new Path(inputPath));
+        FileOutputFormat.setOutputPath(rankOrdering, new Path(outputPath));
+
+        rankOrdering.setInputFormatClass(TextInputFormat.class);
+        rankOrdering.setOutputFormatClass(TextOutputFormat.class);
+
+        return rankOrdering.waitForCompletion(true);
     }
 
     public static void main(String[] args) throws Exception {
